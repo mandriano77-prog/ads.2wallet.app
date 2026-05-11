@@ -4,6 +4,15 @@ Il codice è già multi-tenant e usa `CUSTOM_DOMAIN` per URL pass, landing, call
 
 > Nota DNS: i domini sono case-insensitive; usa **`hr.2wallet.app`** nel DNS e in `CUSTOM_DOMAIN` (senza `https://`).
 
+### Istanza **live** (es. `ads.2wallet.app`) — solo dashboard
+
+Non è un secondo deploy: sul servizio web **già in produzione** → Railway **Variables**:
+
+- `DASHBOARD_PRODUCT_NAME` = `LIVE` o `ADS` (etichetta che vuoi in tab / titolo)
+- opzionale: `DASHBOARD_VENDOR_LINE` = `ads.2wallet.app` — oppure **vuota** per nascondere la riga sotto il nome
+
+Dopo un push su `main` che include l’endpoint `GET /api/v1/public/dashboard-branding`, fai **Redeploy** del servizio. Nessun altro file da duplicare.
+
 ## 1. DNS
 
 Nel pannello del dominio **2wallet.app** crea un record per l’istenza HR, ad esempio:
