@@ -1,22 +1,99 @@
 const { Pool } = require('pg');
 const { v4: uuidv4 } = require('uuid');
 
-function dbUrlNeedsFlexibleSsl(url) {
-  if (!url) return false;
+function dbUrlNeedsFlexibleSsl(urlOrHost) {
+  if (!urlOrHost) return false;
+  const s = String(urlOrHost);
   return (
-    url.includes('railway.app') ||
-    url.includes('ondigitalocean.com') ||
-    /\bsslmode=require\b/i.test(url)
+    s.includes('railway.app') ||
+    s.includes('railway.internal') ||
+    s.includes('rlwy.net') ||
+    s.includes('ondigitalocean.com') ||
+    /\bsslmode=require\b/i.test(s) ||
+    process.env.PGSSLMODE === 'require'
   );
 }
 
-// DATABASE_URL — managed Postgres on DigitalOcean, Railway-style hosts, etc.
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: dbUrlNeedsFlexibleSsl(process.env.DATABASE_URL)
-    ? { rejectUnauthorized: false }
-    : false,
-});
+/**
+ * Detects mistaken DATABASE_URL values (e.g. copy-pasted BASE_URL / https URL,
+ * or a placeholder host like "base" from a bad Railway variable reference).
+ */
+function isValidPostgresConnectionUrl(raw) {
+  if (raw == null || typeof raw !== 'string') return false;
+  const s = raw.trim();
+  if (!s || /^https?:\/\//i.test(s)) return false;
+  if (!/^postgres(ql)?:\/\//i.test(s)) return false;
+  try {
+    const normalized = s.replace(/^postgresql:/i, 'postgres:');
+    const u = new URL(normalized);
+    if (!u.hostname) return false;
+    if (u.hostname.toLowerCase() === 'base') return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function firstValidDatabaseUrlFromEnv() {
+  const candidates = [
+    process.env.DATABASE_URL,
+    process.env.DATABASE_PRIVATE_URL,
+    process.env.POSTGRES_URL,
+    process.env.POSTGRES_PRISMA_URL,
+  ];
+  for (const c of candidates) {
+    if (isValidPostgresConnectionUrl(c)) return String(c).trim();
+  }
+  return null;
+}
+
+function poolConfigFromLibpqEnv() {
+  const host = (process.env.PGHOST || '').trim();
+  const user = process.env.PGUSER;
+  const database = process.env.PGDATABASE;
+  if (!host || host.toLowerCase() === 'base' || user == null || user === '' || !database) {
+    return null;
+  }
+  const port = process.env.PGPORT ? parseInt(process.env.PGPORT, 10) : 5432;
+  return {
+    host,
+    port: Number.isFinite(port) ? port : 5432,
+    user,
+    password: process.env.PGPASSWORD ?? '',
+    database,
+    ssl: dbUrlNeedsFlexibleSsl(host) ? { rejectUnauthorized: false } : false,
+  };
+}
+
+function buildPoolConfig() {
+  const url = firstValidDatabaseUrlFromEnv();
+  if (url) {
+    return {
+      connectionString: url,
+      ssl: dbUrlNeedsFlexibleSsl(url) ? { rejectUnauthorized: false } : false,
+    };
+  }
+  return poolConfigFromLibpqEnv();
+}
+
+const poolConfig = buildPoolConfig();
+if (!poolConfig) {
+  console.error(`
+[db] No usable PostgreSQL configuration found.
+
+Set DATABASE_URL to a postgres:// or postgresql:// connection string (not https://).
+On Railway: add a PostgreSQL database, open your web service → Variables → Reference
+the variable DATABASE_URL from the Postgres service (do not paste BASE_URL or a
+placeholder host like "base").
+
+Alternatively set PGHOST, PGPORT, PGUSER, PGPASSWORD, and PGDATABASE (injected when
+the database is linked to this service).
+`);
+  process.exit(1);
+}
+
+// DATABASE_URL / PG_* — managed Postgres on Railway, DigitalOcean, etc.
+const pool = new Pool(poolConfig);
 
 // Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Schema Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 const SCHEMA = `
