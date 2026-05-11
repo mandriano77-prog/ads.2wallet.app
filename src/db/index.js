@@ -1157,20 +1157,49 @@ async function verifyPassword(plaintext, hash) {
   return bcrypt.compare(plaintext, hash);
 }
 
+/**
+ * Ensures at least one dashboard admin exists.
+ * - Default (no env): if there is no admin yet, creates admin@ads2wallet.com (password Ads2Wallet2026!).
+ * - BOOTSTRAP_ADMIN_EMAIL + BOOTSTRAP_ADMIN_PASSWORD: if that email is not registered yet, creates an
+ *   extra admin (full role) even when other admins already exist — use on Railway once, then unset password.
+ */
 async function seedAdminUser() {
-  try {
-    const existing = await pool.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 1`);
-    if (existing.rows.length === 0) {
-      await createUser({
-        email: 'admin@ads2wallet.com',
-        password: 'Ads2Wallet2026!',
-        name: 'Admin',
-        role: 'admin',
-        brand_id: null
-      });
-      console.log('Ã¢ÂÂ Seeded default admin user: admin@ads2wallet.com / Ads2Wallet2026!');
+  const explicitEmail = (process.env.BOOTSTRAP_ADMIN_EMAIL || '').trim();
+  const email = (explicitEmail || 'admin@ads2wallet.com').toLowerCase();
+  const password = explicitEmail
+    ? (process.env.BOOTSTRAP_ADMIN_PASSWORD || '').trim()
+    : (process.env.BOOTSTRAP_ADMIN_PASSWORD || 'Ads2Wallet2026!').trim();
+
+  if (!password) {
+    if (explicitEmail) {
+      console.log('Admin seed: set BOOTSTRAP_ADMIN_PASSWORD when BOOTSTRAP_ADMIN_EMAIL is set');
     }
-  } catch(e) { console.log('Admin seed note:', e.message); }
+    return;
+  }
+
+  try {
+    const { rows: sameEmail } = await pool.query(
+      `SELECT id FROM users WHERE LOWER(TRIM(email)) = LOWER($1) LIMIT 1`,
+      [email]
+    );
+    if (sameEmail.length > 0) return;
+
+    if (!explicitEmail) {
+      const { rows: anyAdmin } = await pool.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 1`);
+      if (anyAdmin.length > 0) return;
+    }
+
+    await createUser({
+      email,
+      password,
+      name: (process.env.BOOTSTRAP_ADMIN_NAME || 'Admin').trim() || 'Admin',
+      role: 'admin',
+      brand_id: null,
+    });
+    console.log(`[db] Seeded admin user (role=admin, full dashboard): ${email}`);
+  } catch (e) {
+    console.log('Admin seed note:', e.message);
+  }
 }
 
 // Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Media Hub Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
