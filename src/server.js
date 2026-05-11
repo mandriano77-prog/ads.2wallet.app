@@ -105,11 +105,8 @@ app.get('/debug/wallet-check', async (req, res) => {
   }
 });
 
-// API routes
-app.use('/api/v1', apiRoutes);
-app.use('/debug', debugSignRoutes);
-
-// Dashboard shell branding (must be before /dashboard static — no cache so env changes apply subito)
+// Dashboard branding — registered on root app *before* `app.use('/api/v1', …)` so it always hits Node
+// (some hosts/CDNs treat /dashboard/* differently; /api/v1/... is always the API service).
 function getDashboardBrandingPayload() {
   const productName = (process.env.DASHBOARD_PRODUCT_NAME || 'Ads2Wallet').trim() || 'Ads2Wallet';
   let vendorLine = 'by Underdogs Group';
@@ -122,11 +119,18 @@ function getDashboardBrandingPayload() {
     customDomain: process.env.CUSTOM_DOMAIN || null,
   };
 }
-app.get('/dashboard/branding.json', (req, res) => {
+function sendDashboardBrandingJson(req, res) {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.type('application/json');
   res.json(getDashboardBrandingPayload());
-});
+}
+app.get('/api/v1/dashboard-shell-branding.json', sendDashboardBrandingJson);
+
+// API routes
+app.use('/api/v1', apiRoutes);
+app.use('/debug', debugSignRoutes);
+
+app.get('/dashboard/branding.json', sendDashboardBrandingJson);
 
 // Static pages
 app.use('/landing', express.static(path.join(__dirname, 'landing')));

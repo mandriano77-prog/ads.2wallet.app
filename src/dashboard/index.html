@@ -1546,7 +1546,11 @@ function applyShellBranding() {
 }
 
 async function loadDashboardBranding() {
-    const urls = ['/dashboard/branding.json', `${API}/public/dashboard-branding`];
+    const urls = [
+        '/api/v1/dashboard-shell-branding.json',
+        '/dashboard/branding.json',
+        `${API}/public/dashboard-branding`,
+    ];
     for (const url of urls) {
         try {
             const r = await fetch(url, { cache: 'no-store' });
