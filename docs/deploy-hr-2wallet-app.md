@@ -11,7 +11,9 @@ Non è un secondo deploy: sul servizio web **già in produzione** → Railway **
 - `DASHBOARD_PRODUCT_NAME` = `LIVE` o `ADS` (etichetta che vuoi in tab / titolo)
 - opzionale: `DASHBOARD_VENDOR_LINE` = `ads.2wallet.app` — oppure **vuota** per nascondere la riga sotto il nome
 
-Dopo un push su `main` che include l’endpoint `GET /api/v1/public/dashboard-branding`, fai **Redeploy** del servizio. Nessun altro file da duplicare.
+Dopo il push su `main`, fai **Redeploy** del servizio web. La dashboard legge **`/dashboard/branding.json`** (e in fallback `/api/v1/public/dashboard-branding`), entrambi `Cache-Control: no-store` — così le variabili `DASHBOARD_*` si vedono subito dopo redeploy (eventuale hard refresh: Cmd+Shift+R).
+
+**Check:** le variabili `DASHBOARD_PRODUCT_NAME` / `DASHBOARD_VENDOR_LINE` devono essere sul servizio **Node/web**, non solo sul Postgres.
 
 ## 1. DNS
 

@@ -109,6 +109,25 @@ app.get('/debug/wallet-check', async (req, res) => {
 app.use('/api/v1', apiRoutes);
 app.use('/debug', debugSignRoutes);
 
+// Dashboard shell branding (must be before /dashboard static — no cache so env changes apply subito)
+function getDashboardBrandingPayload() {
+  const productName = (process.env.DASHBOARD_PRODUCT_NAME || 'Ads2Wallet').trim() || 'Ads2Wallet';
+  let vendorLine = 'by Underdogs Group';
+  if (process.env.DASHBOARD_VENDOR_LINE !== undefined) {
+    vendorLine = String(process.env.DASHBOARD_VENDOR_LINE).trim();
+  }
+  return {
+    productName,
+    vendorLine,
+    customDomain: process.env.CUSTOM_DOMAIN || null,
+  };
+}
+app.get('/dashboard/branding.json', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.type('application/json');
+  res.json(getDashboardBrandingPayload());
+});
+
 // Static pages
 app.use('/landing', express.static(path.join(__dirname, 'landing')));
 app.use('/dashboard', express.static(path.join(__dirname, 'dashboard')));

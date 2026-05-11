@@ -1546,19 +1546,19 @@ function applyShellBranding() {
 }
 
 async function loadDashboardBranding() {
-    try {
-        const r = await fetch(`${API}/public/dashboard-branding`);
-        if (!r.ok) {
+    const urls = ['/dashboard/branding.json', `${API}/public/dashboard-branding`];
+    for (const url of urls) {
+        try {
+            const r = await fetch(url, { cache: 'no-store' });
+            if (!r.ok) continue;
+            const d = await r.json();
+            if (d.productName && String(d.productName).trim()) APP_PRODUCT_NAME = String(d.productName).trim();
+            if (d.vendorLine !== undefined && d.vendorLine !== null) APP_VENDOR_LINE = String(d.vendorLine).trim();
             applyShellBranding();
             return;
-        }
-        const d = await r.json();
-        if (d.productName && String(d.productName).trim()) APP_PRODUCT_NAME = String(d.productName).trim();
-        if (d.vendorLine !== undefined && d.vendorLine !== null) APP_VENDOR_LINE = String(d.vendorLine).trim();
-        applyShellBranding();
-    } catch (_) {
-        applyShellBranding();
+        } catch (_) { /* try next */ }
     }
+    applyShellBranding();
 }
 
 const AUTH_TOKEN_KEY = 'ads2wallet:jwt';
