@@ -145,7 +145,7 @@
         /* Viewer role: hide all create/edit/delete buttons */
         body.role-viewer .btn:not(.sec):not([onclick*="nav("]):not([onclick*="wzGoStep"]):not([onclick*="wzCopy"]):not([onclick*="wzNewPass"]) { display: none !important; }
         body.role-viewer .btn.danger { display: none !important; }
-        body.role-viewer input:not([readonly]):not([type="search"]), body.role-viewer select:not(#brandSelector), body.role-viewer textarea { pointer-events: none; opacity: 0.6; }
+        body.role-viewer input:not([readonly]):not([type="search"]), body.role-viewer select:not(#brandSelector):not(#dashboardProductLine), body.role-viewer textarea { pointer-events: none; opacity: 0.6; }
         body.role-viewer .viewer-badge { display: inline-block; background: var(--purple); color: #fff; padding: 3px 10px; border-radius: 10px; font-size: 10px; text-transform: uppercase; font-weight: 600; margin-left: 8px; }
         .user-badge { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); cursor: pointer; }
         .user-badge:hover { color: var(--teal); }
@@ -327,7 +327,7 @@
 
 <div class="layout" id="mainLayout" style="display:none;">
     <div class="sidebar">
-        <div class="logo"><span id="shellSidebarProduct">Ads2Wallet</span><small id="shellSidebarVendor">by Underdogs Group</small></div>
+        <div class="logo"><span class="chrome-product-title">Ads2Wallet</span><small>by Underdogs Group</small></div>
         <div class="nav-label" id="navLabelDashboard">Dashboard</div>
         <div class="nav-item active" id="navItemWelcome" onclick="nav('welcome')">Inizio</div>
         <div class="nav-label">Brand</div>
@@ -351,7 +351,7 @@
         <div class="nav-item" onclick="nav('users')">Utenti</div>
 
         <div style="margin-top:auto; padding-top:20px; border-top:1px solid var(--border);">
-            <div id="shellFooterBrand" style="font-size:11px; color:var(--text2);"><span id="shellFooterProduct">Ads2Wallet</span><br id="shellFooterBr"><span id="shellFooterVendor">by Underdogs Group</span></div>
+            <div style="font-size:11px; color:var(--text2);"><span class="chrome-product-title">Ads2Wallet</span><br>by Underdogs Group</div>
         </div>
     </div>
 
@@ -367,6 +367,14 @@
                     <span id="dashboardUserRole" class="role-tag"></span>
                     <button type="button" class="btn small sec" onclick="logout()">Esci</button>
                 </div>
+                <select class="brand-sel" id="dashboardProductLine"
+                        title="Tema interfaccia per linea prodotto (non modifica i colori del pass)"
+                        onchange="onDashboardProductLineChange()">
+                    <option value="ads">Ads</option>
+                    <option value="hr">HR</option>
+                    <option value="engage">Engage</option>
+                    <option value="live">Live</option>
+                </select>
                 <select class="brand-sel" id="brandSelector" onchange="changeBrand()">
                     <option value="">Seleziona Brand</option>
                 </select>
@@ -1515,54 +1523,97 @@
 
 <script>
 const API = '/api/v1';
-/** Istanza dashboard (da GET /api/v1/public/dashboard-branding — env DASHBOARD_* sul server). */
-let APP_PRODUCT_NAME = 'Ads2Wallet';
-let APP_VENDOR_LINE = 'by Underdogs Group';
 
-function applyShellBranding() {
-    const product = APP_PRODUCT_NAME;
-    const vendor = APP_VENDOR_LINE;
-    const loginBlurb = document.getElementById('loginShellBlurb');
-    if (loginBlurb) loginBlurb.textContent = `Dashboard ${product} — utenti abilitati: accedi con email e password.`;
-    const sp = document.getElementById('shellSidebarProduct');
-    const sv = document.getElementById('shellSidebarVendor');
-    if (sp) sp.textContent = product;
-    if (sv) {
-        sv.textContent = vendor;
-        sv.style.display = vendor ? 'block' : 'none';
-    }
-    const fp = document.getElementById('shellFooterProduct');
-    const fv = document.getElementById('shellFooterVendor');
-    const fbr = document.getElementById('shellFooterBr');
-    if (fp) fp.textContent = product;
-    if (fv) {
-        fv.textContent = vendor;
-        fv.style.display = vendor ? '' : 'none';
-    }
-    if (fbr) fbr.style.display = vendor ? '' : 'none';
-    const hbn = document.getElementById('headerBrandName');
-    if (hbn && !brandId) hbn.textContent = product;
-    if (!brandId) document.title = vendor ? `${product} — ${vendor}` : product;
+// ==================== PRODUCT SHELL THEME (linea prodotto) ====================
+const PRODUCT_LINE_STORAGE_KEY = 'ads2wallet:dashboardProductLine:v1';
+const VALID_PRODUCT_LINES = new Set(['ads', 'hr', 'engage', 'live']);
+const PRODUCT_DISPLAY_TITLES = {
+    ads: 'Ads2Wallet',
+    hr: 'HR2Wallet',
+    engage: 'Engage2Wallet',
+    live: 'Live2Wallet'
+};
+const PRODUCT_THEMES = {
+    ads: { bg: '#0D0B1A', accent: '#00D4AA', purple: '#7C3AED', text: '#FFFFFF', onAccent: '#0D0B1A' },
+    hr: { bg: '#0B1220', accent: '#38BDF8', purple: '#A78BFA', text: '#FFFFFF', onAccent: '#0B1220' },
+    engage: { bg: '#0C1117', accent: '#F59E0B', purple: '#FB7185', text: '#FFFFFF', onAccent: '#0C1117' },
+    live: { bg: '#070A12', accent: '#22C55E', purple: '#60A5FA', text: '#FFFFFF', onAccent: '#070A12' }
+};
+
+function getDashboardProductLine() {
+    try {
+        const stored = (localStorage.getItem(PRODUCT_LINE_STORAGE_KEY) || '').trim().toLowerCase();
+        if (VALID_PRODUCT_LINES.has(stored)) return stored;
+    } catch (_) {}
+    try {
+        const p = (new URLSearchParams(window.location.search).get('product') || '').trim().toLowerCase();
+        if (VALID_PRODUCT_LINES.has(p)) return p;
+    } catch (_) {}
+    const h = (window.location.hostname || '').toLowerCase();
+    if (h.startsWith('hr.') || h.includes('hr2wallet') || h.includes('hr.2wallet')) return 'hr';
+    if (h.includes('engage') || h.includes('engage2wallet')) return 'engage';
+    if (h.includes('live') || h.includes('live2wallet')) return 'live';
+    return 'ads';
 }
 
-async function loadDashboardBranding() {
-    const urls = [
-        '/api/v1/dashboard-shell-branding.json',
-        '/dashboard/branding.json',
-        `${API}/public/dashboard-branding`,
-    ];
-    for (const url of urls) {
-        try {
-            const r = await fetch(url, { cache: 'no-store' });
-            if (!r.ok) continue;
-            const d = await r.json();
-            if (d.productName && String(d.productName).trim()) APP_PRODUCT_NAME = String(d.productName).trim();
-            if (d.vendorLine !== undefined && d.vendorLine !== null) APP_VENDOR_LINE = String(d.vendorLine).trim();
-            applyShellBranding();
-            return;
-        } catch (_) { /* try next */ }
+function syncChromeProductTitles(line) {
+    const title = PRODUCT_DISPLAY_TITLES[line] || PRODUCT_DISPLAY_TITLES.ads;
+    document.querySelectorAll('.chrome-product-title').forEach((el) => {
+        el.textContent = title;
+    });
+}
+
+function applyProductShellTheme(line) {
+    const theme = PRODUCT_THEMES[line] || PRODUCT_THEMES.ads;
+    const root = document.documentElement.style;
+    root.setProperty('--bg', theme.bg);
+    root.setProperty('--bg2', lightenHex(theme.bg, 12));
+    root.setProperty('--bg3', lightenHex(theme.bg, 22));
+    root.setProperty('--teal', theme.accent);
+    root.setProperty('--purple', theme.purple);
+    root.setProperty('--text', theme.text);
+    root.setProperty('--text2', adjustAlpha(theme.text, 0.6));
+    root.setProperty('--border', adjustAlpha(theme.text, 0.12));
+
+    const style = document.getElementById('brandThemeStyle');
+    if (style) {
+        const lbl = theme.accent;
+        const bg = theme.bg;
+        const onAccent = theme.onAccent || bg;
+        style.textContent =
+            `input:focus,select:focus,textarea:focus{border-color:${lbl}!important;box-shadow:0 0 0 2px ${lbl}22!important;}` +
+            ` .nav-item.active{background:${lbl}!important;color:${onAccent}!important;}` +
+            ` .badge.active{background:${lbl}33!important;color:${lbl}!important;}` +
+            ` .btn:not(.sec):not(.danger):not(.purple){background:${lbl};color:${onAccent};}`;
     }
-    applyShellBranding();
+}
+
+function syncChromeProductTitlesAndTitle(line) {
+    const productTitle = PRODUCT_DISPLAY_TITLES[line] || PRODUCT_DISPLAY_TITLES.ads;
+    syncChromeProductTitles(line);
+    if (!brandId) {
+        const loginBlurb = document.getElementById('loginShellBlurb');
+        if (loginBlurb) loginBlurb.textContent = `Dashboard ${productTitle} — utenti abilitati: accedi con email e password.`;
+        const hbn = document.getElementById('headerBrandName');
+        if (hbn) hbn.textContent = productTitle;
+        document.title = `${productTitle} — by Underdogs Group`;
+    }
+}
+
+function initDashboardProductTheme() {
+    const line = getDashboardProductLine();
+    applyProductShellTheme(line);
+    syncChromeProductTitlesAndTitle(line);
+    const sel = document.getElementById('dashboardProductLine');
+    if (sel) sel.value = line;
+}
+
+function onDashboardProductLineChange() {
+    const sel = document.getElementById('dashboardProductLine');
+    const next = sel ? String(sel.value || '').trim().toLowerCase() : '';
+    const line = VALID_PRODUCT_LINES.has(next) ? next : 'ads';
+    try { localStorage.setItem(PRODUCT_LINE_STORAGE_KEY, line); } catch (_) {}
+    applyBrandTheme();
 }
 
 const AUTH_TOKEN_KEY = 'ads2wallet:jwt';
@@ -1657,7 +1708,7 @@ function logout() {
     if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
     if (pw) pw.value = '';
     syncAuthUi();
-    applyShellBranding();
+    syncChromeProductTitlesAndTitle(getDashboardProductLine());
 }
 
 async function bootstrapSession() {
@@ -1823,7 +1874,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (e.key === 'Enter') submitLogin();
         });
     }
-    await loadDashboardBranding();
+    initDashboardProductTheme();
     bootstrapSession();
 });
 
@@ -2041,53 +2092,29 @@ function syncBrandUrl() {
 function applyBrandTheme() {
     const headerBrandName = document.getElementById('headerBrandName');
     const headerBrandLogo = document.getElementById('headerBrandLogo');
+    const line = getDashboardProductLine();
+    applyProductShellTheme(line);
+    syncChromeProductTitles(line);
     if (!brandId) {
         currentBrandSlug = '';
-        // Reset to default NUDJ colors
-        const root = document.documentElement.style;
-        root.setProperty('--bg', '#0D0B1A');
-        root.setProperty('--bg2', lightenHex('#0D0B1A', 12));
-        root.setProperty('--bg3', lightenHex('#0D0B1A', 22));
-        root.setProperty('--teal', '#00D4AA');
-        root.setProperty('--purple', adjustAlpha('#00D4AA', 0.7));
-        root.setProperty('--text', '#FFFFFF');
-        root.setProperty('--text2', adjustAlpha('#FFFFFF', 0.6));
-        root.setProperty('--border', adjustAlpha('#FFFFFF', 0.12));
-        const style = document.getElementById('brandThemeStyle');
-        if (style) style.textContent = '';
-        if (headerBrandName) headerBrandName.textContent = APP_PRODUCT_NAME;
+        const productTitle = PRODUCT_DISPLAY_TITLES[line] || PRODUCT_DISPLAY_TITLES.ads;
+        if (headerBrandName) headerBrandName.textContent = productTitle;
         if (headerBrandLogo) {
             headerBrandLogo.style.display = 'none';
             headerBrandLogo.removeAttribute('src');
         }
-        document.title = APP_VENDOR_LINE ? `${APP_PRODUCT_NAME} — ${APP_VENDOR_LINE}` : APP_PRODUCT_NAME;
+        document.title = `${productTitle} — by Underdogs Group`;
         return;
     }
     const targetBrandId = brandId;
     fetch(`${API}/brands/${brandId}`).then(r => r.json()).then(brand => {
         if (brandId !== targetBrandId) return;
-        const c = brand.config || {};
-        const bg = c.backgroundColor || '#0D0B1A';
-        const fg = c.foregroundColor || '#FFFFFF';
-        const lbl = c.labelColor || '#00D4AA';
         // Update brand name in header and page title
-        const name = brand.name || APP_PRODUCT_NAME;
+        const productTitle = PRODUCT_DISPLAY_TITLES[line] || PRODUCT_DISPLAY_TITLES.ads;
+        const name = brand.name || productTitle;
         currentBrandSlug = brand.slug || '';
         if (headerBrandName) headerBrandName.textContent = name;
-        document.title = name + ' — ' + APP_PRODUCT_NAME;
-        // Derive palette from brand colors
-        const root = document.documentElement.style;
-        root.setProperty('--bg', bg);
-        root.setProperty('--bg2', lightenHex(bg, 12));
-        root.setProperty('--bg3', lightenHex(bg, 22));
-        root.setProperty('--teal', lbl);
-        root.setProperty('--purple', adjustAlpha(lbl, 0.7));
-        root.setProperty('--text', fg);
-        root.setProperty('--text2', adjustAlpha(fg, 0.6));
-        root.setProperty('--border', adjustAlpha(fg, 0.12));
-        // Update focus ring + active nav item color
-        const style = document.getElementById('brandThemeStyle');
-        if (style) style.textContent = `input:focus,select:focus,textarea:focus{border-color:${lbl}!important;box-shadow:0 0 0 2px ${lbl}22!important;} .nav-item.active{background:${lbl}!important;color:${bg}!important;} .badge.active{background:${lbl}33!important;color:${lbl}!important;} .btn:not(.sec):not(.danger):not(.purple){background:${lbl};color:${bg};}`;
+        document.title = name + ' — ' + productTitle;
 
         // Load brand logo for the header (fallback to text-only if missing).
         if (headerBrandLogo) {
@@ -5245,7 +5272,7 @@ async function saveBrandIdentity() {
         await fetch(`${API}/brands/${brandId}`, { method: 'PUT', headers: {'Content-Type':'application/json', ...getAuthHeaders()}, body: JSON.stringify({ name, slug, config: mergedConfig }) });
         toast('Identità brand salvata!');
     }
-    applyBrandTheme(config);
+    applyBrandTheme();
     loadBrandIdentity();
 }
 
