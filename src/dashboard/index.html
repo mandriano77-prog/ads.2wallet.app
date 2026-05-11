@@ -342,8 +342,8 @@
         <div class="nav-label">Engagement</div>
         <div class="nav-item" onclick="nav('instant-win')">Instant Win</div>
         <div class="nav-item" onclick="nav('gamification')">Gamification</div>
-        <div class="nav-label">Database</div>
-        <div class="nav-item" onclick="nav('leads')">Leads</div>
+        <div class="nav-label" data-menu-key="nav_db_label" data-menu-default="Database">Database</div>
+        <div class="nav-item" onclick="nav('leads')" data-menu-key="nav_leads" data-menu-default="Leads">Leads</div>
         <div class="nav-label">Insights</div>
         <div class="nav-item" onclick="nav('analytics')">Analytics</div>
         <div class="nav-item" onclick="nav('activity-log')">Attività</div>
@@ -1540,6 +1540,19 @@ const PRODUCT_THEMES = {
     live: { bg: '#070A12', accent: '#22C55E', purple: '#60A5FA', text: '#FFFFFF', onAccent: '#070A12' }
 };
 
+const PRODUCT_MENU_COPY = {
+    ads: {},
+    live: {},
+    hr: {
+        nav_db_label: 'Database • People',
+        nav_leads: 'People',
+    },
+    engage: {
+        nav_db_label: 'Database • Customer',
+        nav_leads: 'Customer',
+    },
+};
+
 function getDashboardProductLine() {
     try {
         const stored = (localStorage.getItem(PRODUCT_LINE_STORAGE_KEY) || '').trim().toLowerCase();
@@ -1560,6 +1573,16 @@ function syncChromeProductTitles(line) {
     const title = PRODUCT_DISPLAY_TITLES[line] || PRODUCT_DISPLAY_TITLES.ads;
     document.querySelectorAll('.chrome-product-title').forEach((el) => {
         el.textContent = title;
+    });
+}
+
+function applyProductMenuCopy(line) {
+    const copy = PRODUCT_MENU_COPY[line] || {};
+    document.querySelectorAll('[data-menu-key]').forEach((el) => {
+        const k = el.getAttribute('data-menu-key');
+        if (!k) return;
+        if (copy[k]) el.textContent = copy[k];
+        else if (el.dataset && el.dataset.menuDefault) el.textContent = el.dataset.menuDefault;
     });
 }
 
@@ -1604,6 +1627,7 @@ function initDashboardProductTheme() {
     const line = getDashboardProductLine();
     applyProductShellTheme(line);
     syncChromeProductTitlesAndTitle(line);
+    applyProductMenuCopy(line);
     const sel = document.getElementById('dashboardProductLine');
     if (sel) sel.value = line;
 }
@@ -2095,6 +2119,7 @@ function applyBrandTheme() {
     const line = getDashboardProductLine();
     applyProductShellTheme(line);
     syncChromeProductTitles(line);
+    applyProductMenuCopy(line);
     if (!brandId) {
         currentBrandSlug = '';
         const productTitle = PRODUCT_DISPLAY_TITLES[line] || PRODUCT_DISPLAY_TITLES.ads;
