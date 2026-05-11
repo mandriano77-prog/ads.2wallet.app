@@ -26,10 +26,14 @@ Attendi propagazione (spesso pochi minuti, a volte di più).
 | Variabile | Valore HR |
 |-----------|-----------|
 | `CUSTOM_DOMAIN` | `hr.2wallet.app` |
+| `DASHBOARD_PRODUCT_NAME` | `HR` (testo principale in dashboard: login, sidebar, titolo browser) |
+| `DASHBOARD_VENDOR_LINE` | es. `hr.2wallet.app` oppure `by Underdogs Group` — oppure stringa **vuota** per nascondere la riga sotto il nome |
 | `DATABASE_URL` | Solo dal Postgres **di questo** progetto |
 | `JWT_SECRET` | **Nuovo** valore casuale (non riusare quello di Ads) |
 | `PORT` | Lasciare default Railway (`3000` ok se non sovrascritto) |
 | Certificati Apple, `PASS_TYPE_IDENTIFIER`, `TEAM_IDENTIFIER`, Resend, Google/Samsung, ecc. | Stessi valori **solo se** HR condivide lo stesso programma tecnico; in alternativa credenziali dedicate per HR |
+
+La dashboard legge il branding da `GET /api/v1/public/dashboard-branding` (nessun login richiesto), così ogni istanza mostra il nome corretto senza fork del codice.
 
 5. **Settings → Networking / Domains** → aggiungi **Custom Domain** `hr.2wallet.app` e completa il certificato TLS come da wizard Railway.
 
