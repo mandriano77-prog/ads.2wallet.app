@@ -1561,9 +1561,12 @@ function getDashboardProductLine() {
         if (VALID_PRODUCT_LINES.has(p)) return p;
     } catch (_) {}
     const h = (window.location.hostname || '').toLowerCase();
-    if (h.startsWith('hr.') || h.includes('hr2wallet') || h.includes('hr.2wallet')) return 'hr';
-    if (h.includes('engage') || h.includes('engage2wallet')) return 'engage';
-    if (h.includes('live') || h.includes('live2wallet')) return 'live';
+    const first = h.split('.')[0] || '';
+    if (['hr', 'engage', 'live', 'ads'].includes(first)) return first;
+    if (h.includes('hr2wallet') || h.includes('hr.2wallet')) return 'hr';
+    if (h.includes('engage2wallet')) return 'engage';
+    if (h.includes('live2wallet')) return 'live';
+    if (h.includes('ads2wallet')) return 'ads';
     return 'ads';
 }
 
